@@ -15,7 +15,7 @@ Parameters:
     Default: vpc-0aae0eaa00906dad9
   SubnetId:
     Type: AWS::EC2::Subnet::Id
-    Default: vpc-0aae0eaa00906dad9
+    Default: subnet-015555e5669129ae7
   SecurityGroupId:
     Type: AWS::EC2::SecurityGroup::Id
     Default: sg-07620c55fafa4b5ed
