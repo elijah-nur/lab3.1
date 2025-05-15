@@ -8,7 +8,6 @@ Parameters:
     Default: wordpress
   InstanceType:
     Type: String
-    Description: EC2 instance type for Jenkins
     Default: t2.micro
   VpcId:
     Type: AWS::EC2::VPC::Id
@@ -23,16 +22,6 @@ Parameters:
   LatestAmiId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
-  GitHubRepo:
-    Type: String
-    Default: https://github.com/elijah-nur/lab3.1.git
-  StackName:
-    Type: String
-    Default: WordPress
-  TemplateFilePath:
-    Type: String
-    Description: Path to the WordPress CloudFormation template in the repository
-    Default: wordpress.yaml
   AwsRegion:
     Type: String
     Default: us-east-1
@@ -50,86 +39,13 @@ Resources:
       UserData:
         Fn::Base64: |
           #!/bin/bash
-          # Оновлення системи
           yum update -y
-
-          # Встановлення Java (потрібно для Jenkins)
-          yum install -y java-11-amazon-corretto
-
-          # Встановлення Jenkins
-          wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-          rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
-          yum install -y jenkins
-          systemctl start jenkins
-          systemctl enable jenkins
-
-          # Встановлення Docker
           amazon-linux-extras install docker -y
           systemctl start docker
           systemctl enable docker
           usermod -a -G docker ec2-user
-          usermod -a -G docker jenkins
-
-          # Встановлення AWS CLI
-          yum install -y awscli
-
-          # Встановлення Git
-          yum install -y git
-
-          # Налаштування Jenkins для автоматичного запуску пайплайну
-          mkdir -p /var/lib/jenkins/pipeline
-          cat <<EOT > /var/lib/jenkins/pipeline/Jenkinsfile
-          pipeline {
-            agent any
-            stages {
-              stage('Retrieve CloudFormation Template') {
-                steps {
-                  git '${GitHubRepo}'
-                }
-              }
-              stage('Deploy CloudFormation Stack') {
-                steps {
-                  script {
-                    def awsRegion = '${AwsRegion}'
-                    def stackName = '${StackName}'
-                    def templateFile = '${TemplateFilePath}'
-                    sh """
-                    aws cloudformation deploy \
-                      --region ${awsRegion} \
-                      --stack-name ${stackName} \
-                      --template-file ${templateFile} \
-                      --capabilities CAPABILITY_IAM \
-                      --parameter-overrides \
-                        KeyName=${KeyName} \
-                        VpcId=${VpcId} \
-                        SubnetId=${SubnetId} \
-                        SecurityGroupId=${SecurityGroupId}
-                    """
-                  }
-                }
-              }
-            }
-          }
-          EOT
-
-          # Зміна власника Jenkinsfile
-          chown jenkins:jenkins /var/lib/jenkins/pipeline/Jenkinsfile
-
-          # Налаштування Jenkins для автоматичного запуску
-          mkdir -p /var/lib/jenkins/.ssh
-          echo "StrictHostKeyChecking=no" >> /var/lib/jenkins/.ssh/config
-          chown -R jenkins:jenkins /var/lib/jenkins/.ssh
-
-          # Логування
-          echo "Jenkins setup complete" >> /var/log/jenkins_setup.log
+          docker pull wordpress:latest
+          docker run -d -p 8080:80 wordpress
       Tags:
         - Key: Name
-          Value: Jenkins-Server
-
-Outputs:
-  InstancePublicIp:
-    Description: Public IP of the Jenkins EC2 instance
-    Value: !GetAtt EC2Instance.PublicIp
-  JenkinsURL:
-    Description: URL to access Jenkins
-    Value: !Sub http://${EC2Instance.PublicIp}:8080
+          Value: WordPress
