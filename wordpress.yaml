@@ -5,45 +5,36 @@ Description: CloudFormation template for deploying a Jenkins server with a pipel
 Parameters:
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: Name of an existing EC2 KeyPair for SSH access
-    ConstraintDescription: Must be the name of an existing EC2 KeyPair
+    Default: wordpress
   InstanceType:
     Type: String
     Description: EC2 instance type for Jenkins
     Default: t2.micro
-    AllowedValues: [t2.micro, t2.small, t2.medium]
-    ConstraintDescription: Must be a valid EC2 instance type
   VpcId:
     Type: AWS::EC2::VPC::Id
     Description: ID of the existing VPC
-    ConstraintDescription: Must be the ID of an existing VPC
+    Default: vpc-0aae0eaa00906dad9
   SubnetId:
     Type: AWS::EC2::Subnet::Id
-    Description: ID of the existing subnet
-    ConstraintDescription: Must be the ID of an existing subnet in the selected VPC
+    Default: vpc-0aae0eaa00906dad9
   SecurityGroupId:
     Type: AWS::EC2::SecurityGroup::Id
-    Description: ID of the existing security group
-    ConstraintDescription: Must be the ID of an existing security group in the selected VPC
+    Default: sg-07620c55fafa4b5ed
   LatestAmiId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
-    Description: Latest Amazon Linux 2 AMI
   GitHubRepo:
     Type: String
-    Description: URL of the GitHub repository containing the WordPress CloudFormation template
-    Default: https://github.com/your-github-repo.git
+    Default: https://github.com/elijah-nur/lab3.1.git
   StackName:
     Type: String
-    Description: Name of the CloudFormation stack to deploy
-    Default: WordPressLab
+    Default: WordPress
   TemplateFilePath:
     Type: String
     Description: Path to the WordPress CloudFormation template in the repository
-    Default: wordpress-ec2-existing-vpc-with-pull.yaml
+    Default: wordpress.yaml
   AwsRegion:
     Type: String
-    Description: AWS region for deployment
     Default: us-east-1
 
 Resources:
