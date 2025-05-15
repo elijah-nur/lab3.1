@@ -1,0 +1,144 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template for deploying a Jenkins server with a pipeline to retrieve and deploy a WordPress CloudFormation stack using existing VPC infrastructure
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an existing EC2 KeyPair for SSH access
+    ConstraintDescription: Must be the name of an existing EC2 KeyPair
+  InstanceType:
+    Type: String
+    Description: EC2 instance type for Jenkins
+    Default: t2.micro
+    AllowedValues: [t2.micro, t2.small, t2.medium]
+    ConstraintDescription: Must be a valid EC2 instance type
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: ID of the existing VPC
+    ConstraintDescription: Must be the ID of an existing VPC
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: ID of the existing subnet
+    ConstraintDescription: Must be the ID of an existing subnet in the selected VPC
+  SecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: ID of the existing security group
+    ConstraintDescription: Must be the ID of an existing security group in the selected VPC
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+    Description: Latest Amazon Linux 2 AMI
+  GitHubRepo:
+    Type: String
+    Description: URL of the GitHub repository containing the WordPress CloudFormation template
+    Default: https://github.com/your-github-repo.git
+  StackName:
+    Type: String
+    Description: Name of the CloudFormation stack to deploy
+    Default: WordPressLab
+  TemplateFilePath:
+    Type: String
+    Description: Path to the WordPress CloudFormation template in the repository
+    Default: wordpress-ec2-existing-vpc-with-pull.yaml
+  AwsRegion:
+    Type: String
+    Description: AWS region for deployment
+    Default: us-east-1
+
+Resources:
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref LatestAmiId
+      KeyName: !Ref KeyName
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds:
+        - !Ref SecurityGroupId
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          # Оновлення системи
+          yum update -y
+
+          # Встановлення Java (потрібно для Jenkins)
+          yum install -y java-11-amazon-corretto
+
+          # Встановлення Jenkins
+          wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+          rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+          yum install -y jenkins
+          systemctl start jenkins
+          systemctl enable jenkins
+
+          # Встановлення Docker
+          amazon-linux-extras install docker -y
+          systemctl start docker
+          systemctl enable docker
+          usermod -a -G docker ec2-user
+          usermod -a -G docker jenkins
+
+          # Встановлення AWS CLI
+          yum install -y awscli
+
+          # Встановлення Git
+          yum install -y git
+
+          # Налаштування Jenkins для автоматичного запуску пайплайну
+          mkdir -p /var/lib/jenkins/pipeline
+          cat <<EOT > /var/lib/jenkins/pipeline/Jenkinsfile
+          pipeline {
+            agent any
+            stages {
+              stage('Retrieve CloudFormation Template') {
+                steps {
+                  git '${GitHubRepo}'
+                }
+              }
+              stage('Deploy CloudFormation Stack') {
+                steps {
+                  script {
+                    def awsRegion = '${AwsRegion}'
+                    def stackName = '${StackName}'
+                    def templateFile = '${TemplateFilePath}'
+                    sh """
+                    aws cloudformation deploy \
+                      --region ${awsRegion} \
+                      --stack-name ${stackName} \
+                      --template-file ${templateFile} \
+                      --capabilities CAPABILITY_IAM \
+                      --parameter-overrides \
+                        KeyName=${KeyName} \
+                        VpcId=${VpcId} \
+                        SubnetId=${SubnetId} \
+                        SecurityGroupId=${SecurityGroupId}
+                    """
+                  }
+                }
+              }
+            }
+          }
+          EOT
+
+          # Зміна власника Jenkinsfile
+          chown jenkins:jenkins /var/lib/jenkins/pipeline/Jenkinsfile
+
+          # Налаштування Jenkins для автоматичного запуску
+          mkdir -p /var/lib/jenkins/.ssh
+          echo "StrictHostKeyChecking=no" >> /var/lib/jenkins/.ssh/config
+          chown -R jenkins:jenkins /var/lib/jenkins/.ssh
+
+          # Логування
+          echo "Jenkins setup complete" >> /var/log/jenkins_setup.log
+      Tags:
+        - Key: Name
+          Value: Jenkins-Server
+
+Outputs:
+  InstancePublicIp:
+    Description: Public IP of the Jenkins EC2 instance
+    Value: !GetAtt EC2Instance.PublicIp
+  JenkinsURL:
+    Description: URL to access Jenkins
+    Value: !Sub http://${EC2Instance.PublicIp}:8080
