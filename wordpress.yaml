@@ -1,7 +1,5 @@
 
 AWSTemplateFormatVersion: '2010-09-09'
-Description: CloudFormation template for deploying a Jenkins server with a pipeline to retrieve and deploy a WordPress CloudFormation stack using existing VPC infrastructure
-
 Parameters:
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
@@ -11,7 +9,6 @@ Parameters:
     Default: t2.micro
   VpcId:
     Type: AWS::EC2::VPC::Id
-    Description: ID of the existing VPC
     Default: vpc-0aae0eaa00906dad9
   SubnetId:
     Type: AWS::EC2::Subnet::Id
