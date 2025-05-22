@@ -37,7 +37,7 @@ Resources:
         Fn::Base64: |
           #!/bin/bash
           yum update -y
-          amazon-linux-extras install docker -y
+          amazon-linux-extras install -y docker 
           systemctl start docker
           systemctl enable docker
           usermod -a -G docker ec2-user
